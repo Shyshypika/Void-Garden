@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Void Garden: Dark Matter Defense</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="tailwind.min.css">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="js/lucide.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #03020a;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        h1, h2, h3, .font-fredoka {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(168, 85, 247, 0.4);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(168, 85, 247, 0.7);
+        }
+
+        /* Glassmorphism Styling */
+        .glass-panel {
+            background: rgba(15, 12, 34, 0.85);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* Tab active state */
+        .tab-btn.active {
+            background: rgba(168, 85, 247, 0.25);
+            border-color: rgba(216, 180, 254, 0.6);
+            color: #f3e8ff;
+        }
+
+        /* Floating Damage Text Animation */
+        @keyframes float-up-fade {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.8) translateY(0);
+            }
+            20% {
+                transform: translate(-50%, -50%) scale(1.15) translateY(-8px);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.9) translateY(-45px);
+            }
+        }
+
+        .pop-text {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+            animation: float-up-fade 1.1s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        #game-canvas {
+            touch-action: none;
+        }
+
+        .weapon-card.selected {
+            border-color: #c084fc;
+            box-shadow: 0 0 15px rgba(192, 132, 252, 0.4);
+            background: rgba(168, 85, 247, 0.2);
+        }
+
+        /* Sidebar collapse transition */
+        #right-sidebar-wrapper {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        }
+        #right-sidebar-wrapper.collapsed {
+            transform: translateX(calc(100% + 2rem));
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen h-screen overflow-hidden select-none relative">
+
+    <!-- Canvas Play Area Background -->
+    <div class="absolute inset-0 z-0">
+        <canvas id="game-canvas" class="w-full h-full block cursor-crosshair"></canvas>
+    </div>
+
+    <!-- UI Overlay Layout Container -->
+    <div class="relative z-10 h-full flex flex-col md:flex-row max-w-7xl mx-auto p-3 sm:p-5 gap-4 pointer-events-none">
+
+        <!-- Left Side: Header Controls & Canvas Overlay HUD -->
+        <div class="flex-1 flex flex-col h-full min-h-0 justify-between">
+            
+            <!-- Top HUD Bar -->
+            <div class="glass-panel rounded-2xl p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xl pointer-events-auto">
+                
+                <!-- Dark Matter Resource Counter -->
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 via-fuchsia-500 to-pink-400 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                        <i data-lucide="sparkles" class="w-7 h-7 text-white"></i>
+                    </div>
+                    <div>
+                        <div class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-purple-300/80">Dark Matter</div>
+                        <div id="dm-counter" class="text-2xl sm:text-3xl font-fredoka font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-pink-200 to-fuchsia-300">
+                            0
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Level & Progress Bar -->
+                <div class="flex flex-col gap-1 min-w-[160px] sm:min-w-[200px]">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-purple-200 uppercase tracking-wide">Level <span id="level-disp" class="text-amber-300 text-sm">1</span></span>
+                        <span class="text-purple-300/70 text-[11px]"><span id="level-popped-disp">0</span>/<span id="level-req-disp">12</span> Popped</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-purple-950/80 rounded-full border border-purple-800/40 overflow-hidden">
+                        <div id="level-progress-bar" class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300 w-0"></div>
+                    </div>
+                </div>
+
+                <!-- Game Stats -->
+                <div class="flex items-center gap-3 text-xs sm:text-sm text-purple-200/80 bg-purple-950/40 px-3 py-2 rounded-xl border border-purple-800/30">
+                    <div class="flex items-center gap-1.5" title="Dark Matter earned per second from turrets">
+                        <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                        <span><strong id="dps-disp" class="text-white font-semibold">0</strong> /s</span>
+                    </div>
+                    <div class="h-4 w-px bg-purple-800/50"></div>
+                    <div class="flex items-center gap-1.5" title="Click shrink power">
+                        <i data-lucide="pointer" class="w-4 h-4 text-pink-400"></i>
+                        <span><strong id="click-power-disp" class="text-white font-semibold">10</strong> dmg</span>
+                    </div>
+                    <div class="h-4 w-px bg-purple-800/50 hidden sm:block"></div>
+                    <div class="hidden sm:flex items-center gap-1.5" title="Active defenses placed">
+                        <i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i>
+                        <span><strong id="turret-count-disp" class="text-white font-semibold">0</strong> Defenses</span>
+                    </div>
+                </div>
+
+                <!-- System Controls & Quick Actions -->
+                <div class="flex items-center gap-2">
+                    <button id="btn-delete-mode" class="p-2.5 rounded-xl glass-panel hover:bg-red-900/40 text-red-400 transition-all border border-red-700/30" title="Toggle Delete Mode (Sell Defenses)">
+                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                    </button>
+                    <button id="btn-save-quick" class="p-2.5 rounded-xl glass-panel hover:bg-purple-900/40 text-purple-300 transition-all border border-purple-700/30" title="Save Game">
+                        <i data-lucide="save" class="w-5 h-5"></i>
+                    </button>
+                    <button id="btn-wipe-save" class="p-2.5 rounded-xl glass-panel hover:bg-rose-900/60 text-rose-300 transition-all border border-rose-600/40" title="Wipe Save Data">
+                        <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+                    </button>
+                    <button id="btn-audio" class="p-2.5 rounded-xl glass-panel hover:bg-purple-900/40 text-purple-300 transition-all border border-purple-700/30" title="Toggle Sound">
+                        <i data-lucide="volume-2" id="icon-audio" class="w-5 h-5"></i>
+                    </button>
+                    <button id="btn-stats" class="p-2.5 rounded-xl glass-panel hover:bg-purple-900/40 text-purple-300 transition-all border border-purple-700/30" title="Statistics">
+                        <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Floating In-Game Controls, Active Player Abilities & Hints -->
+            <div class="flex flex-wrap justify-between items-end gap-2 pointer-events-auto">
+                
+                <!-- Player Active Abilities (Unlockable) -->
+                <div class="glass-panel p-2 rounded-2xl border border-purple-500/20 text-xs flex items-center gap-2 backdrop-blur-md">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-purple-300/70 px-1">Abilities:</span>
+                    <button id="ability-freeze" class="opacity-40 cursor-not-allowed bg-cyan-950/70 text-cyan-200 border border-cyan-500/30 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 text-xs font-medium">
+                        <i data-lucide="snowflake" class="w-3.5 h-3.5 text-cyan-400"></i>
+                        <span>Freeze All</span>
+                        <span id="cd-freeze" class="text-[10px] opacity-70">🔒</span>
+                    </button>
+                    <button id="ability-chain" class="opacity-40 cursor-not-allowed bg-indigo-950/70 text-indigo-200 border border-indigo-500/30 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 text-xs font-medium">
+                        <i data-lucide="zap" class="w-3.5 h-3.5 text-indigo-400"></i>
+                        <span>Chain Arc</span>
+                        <span id="cd-chain" class="text-[10px] opacity-70">🔒</span>
+                    </button>
+                    <button id="ability-nova" class="opacity-40 cursor-not-allowed bg-rose-950/70 text-rose-200 border border-rose-500/30 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 text-xs font-medium">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-rose-400"></i>
+                        <span>Supernova</span>
+                        <span id="cd-nova" class="text-[10px] opacity-70">🔒</span>
+                    </button>
+                </div>
+
+                <!-- Sphere Counter HUD -->
+                <div class="glass-panel px-3.5 py-2 rounded-2xl border border-purple-500/20 text-xs text-purple-200/90 flex items-center gap-3 backdrop-blur-md">
+                    <div class="flex items-center gap-1.5">
+                        <i data-lucide="circle-dot" class="w-4 h-4 text-fuchsia-400"></i>
+                        <span>Active Spheres: <strong id="orbs-count" class="text-white">0</strong>/<span id="orbs-max">8</span></span>
+                    </div>
+                </div>
+
+                <!-- Delete Mode Banner -->
+                <div id="delete-banner" class="hidden glass-panel px-4 py-2 rounded-2xl border border-red-400/50 bg-red-950/40 text-red-200 text-xs font-semibold flex items-center gap-3 animate-pulse">
+                    <span>Click any defense to SELL it (75% DM refund)</span>
+                    <button id="btn-cancel-delete" class="bg-red-900/60 hover:bg-red-800/80 px-2 py-0.5 rounded-md text-[10px] text-red-100">Exit</button>
+                </div>
+
+                <!-- Build Placement Banner -->
+                <div id="placement-banner" class="hidden glass-panel px-4 py-2 rounded-2xl border border-amber-400/50 bg-amber-950/30 text-amber-200 text-xs font-semibold flex items-center gap-3 animate-pulse">
+                    <span id="placement-text">Click anywhere on space to place defense</span>
+                    <button id="btn-cancel-placement" class="bg-amber-900/60 hover:bg-amber-800/80 px-2 py-0.5 rounded-md text-[10px] text-amber-100">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Upgrades & Turret Shop Sidebar -->
+        <div id="right-sidebar-wrapper" class="relative w-full md:w-80 lg:w-96 h-72 md:h-full flex-shrink-0 pointer-events-auto">
+            
+            <!-- Hide Sidebar Toggle Button -->
+            <button id="btn-toggle-sidebar" class="absolute -left-10 top-4 z-20 glass-panel p-2.5 rounded-l-2xl text-purple-300 hover:text-white hover:bg-purple-900/50 border border-r-0 border-purple-500/30 shadow-xl transition-all" title="Hide/Show Menu">
+                <i data-lucide="chevron-right" id="icon-toggle-sidebar" class="w-5 h-5"></i>
+            </button>
+
+            <div class="w-full h-full flex flex-col min-h-0 glass-panel rounded-3xl overflow-hidden border border-purple-500/20 shadow-2xl">
+                
+                <!-- Sidebar Header Tabs -->
+                <div class="p-3 bg-purple-950/40 border-b border-purple-800/30 flex gap-1.5">
+                    <button data-tab="build" class="tab-btn active flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold transition border border-transparent flex items-center justify-center gap-1.5">
+                        <i data-lucide="shield-plus" class="w-4 h-4"></i>
+                        <span>Defenses</span>
+                    </button>
+                    <button data-tab="upgrades" class="tab-btn flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold transition border border-transparent flex items-center justify-center gap-1.5">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                        <span>Upgrades</span>
+                    </button>
+                    <button data-tab="cosmic" class="tab-btn flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold transition border border-transparent flex items-center justify-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        <span>Cosmic</span>
+                    </button>
+                </div>
+
+                <!-- Tab Content Scrollable Area -->
+                <div id="sidebar-container" class="flex-1 overflow-y-auto p-3 space-y-3">
+                    <!-- Injected via JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Re-open Button when Menu is Collapsed -->
+        <button id="btn-reopen-sidebar" class="hidden fixed right-0 top-1/2 -translate-y-1/2 z-40 glass-panel py-4 px-2.5 rounded-l-2xl text-purple-200 hover:text-white hover:bg-purple-900/60 border border-r-0 border-purple-500/40 shadow-2xl flex flex-col items-center gap-2 pointer-events-auto transition-all animate-pulse">
+            <i data-lucide="panel-right-open" class="w-5 h-5 text-purple-300"></i>
+            <span class="text-[10px] font-bold uppercase tracking-widest [writing-mode:vertical-lr] rotate-180">Shop</span>
+        </button>
+
+    </div>
+
+    <!-- Modal Dialog Overlay -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div id="modal-box" class="glass-panel w-full max-w-md rounded-3xl p-6 border border-purple-500/30 shadow-2xl relative">
+            <button id="modal-close" class="absolute top-4 right-4 text-purple-300 hover:text-white p-1 rounded-lg">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+    <script src="lucide.min.js"></script>
+    <!-- Toast Notification -->
+    <div id="toast-msg" class="fixed bottom-5 left-1/2 -translate-x-1/2 glass-panel px-4 py-2.5 rounded-2xl border border-purple-400/40 text-purple-100 text-xs sm:text-sm font-medium shadow-2xl pointer-events-none transition-all duration-300 opacity-0 translate-y-4 z-50 flex items-center gap-2">
+        <i data-lucide="info" class="w-4 h-4 text-purple-300"></i>
+        <span id="toast-text">Welcome to Void Garden</span>
+    </div>
+
+    <script>
+        function safeCreateIcons() {
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        }
+
+        const gameState = {
+            darkMatter: 25,
+            totalDMHarvested: 0,
+            totalSpheresPopped: 0,
+            totalClicks: 0,
+            startTime: Date.now(),
+            
+            level: 1,
+            levelPoppedSpheres: 0,
+            spheresPerLevel: 12,
+
+            clickPower: 12,
+            passiveDMPerSec: 0,
+            maxDarkSpheres: 8,
+            baseSpawnIntervalMs: 1800,
+            dmMultiplier: 1.0,
+
+            placedTurrets: [],
+            selectedWeaponToPlace: null,
+            deleteMode: false,
+
+            abilitiesUnlocked: {
+                freeze: false,
+                chain: false,
+                nova: false
+            },
+            cooldowns: {
+                freeze: 0,
+                chain: 0,
+                nova: 0
+            },
+
+            upgrades: {
+                clickDamage: 0,
+                clickPowerMult: 0,
+                turretDamageAll: 0,
+                turretSpeedAll: 0,
+                maxSphereCap: 0,
+                fasterSpawn: 0,
+                starlightHarvester: 0,
+                unlockFreezeAbility: 0,
+                unlockChainAbility: 0,
+                unlockNovaAbility: 0,
+                unlockBeam: 0,
+                unlockTesla: 0,
+                unlockOrbiter: 0,
+                unlockFrost: 0,
+                unlockMortar: 0,
+                unlockPlasma: 0,
+                unlockSiphon: 0,
+                unlockChronos: 0,
+                unlockBlackHole: 0,
+                unlockNebula: 0
+            }
+        };
+
+        const BOSS_TYPES = [
+            { name: "Void Sovereign", minLevel: 3, color: "#f43f5e", massMult: 20, reward: 800, title: "👑 VOID SOVEREIGN" },
+            { name: "Oblivion Sentinel", minLevel: 6, color: "#06b6d4", massMult: 40, reward: 2500, title: "⚡ OBLIVION SENTINEL" },
+            { name: "Singularity Monarch", minLevel: 9, color: "#eab308", massMult: 80, reward: 7500, title: "🌟 SINGULARITY MONARCH" },
+            { name: "Cosmic Leviathan", minLevel: 12, color: "#a855f7", massMult: 150, reward: 20000, title: "🌌 COSMIC LEVIATHAN" }
+        ];
+
+        const WEAPON_TYPES = {
+            starCannon: { id: 'starCannon', name: 'Star Shooter', desc: 'Shoots cozy starlight projectiles.', icon: 'sun', color: '#fef08a', beamColor: '#facc15', range: 160, damage: 8, fireRate: 0.8, cost: 20, costMult: 1.4, minLevel: 1 },
+            teslaCoil: { id: 'teslaCoil', name: 'Tesla Coil', desc: 'Zaps surrounding spheres with high-voltage arcs.', icon: 'zap-off', color: '#e0e7ff', beamColor: '#818cf8', range: 150, damage: 16, fireRate: 1.5, cost: 60, costMult: 1.45, requiresUpgrade: 'unlockTesla', minLevel: 2 },
+            laserBeam: { id: 'laserBeam', name: 'Starlight Beam', desc: 'Emits a continuous laser beam.', icon: 'zap', color: '#38bdf8', beamColor: '#38bdf8', range: 140, damage: 3.5, fireRate: 10, cost: 110, costMult: 1.5, requiresUpgrade: 'unlockBeam', minLevel: 2 },
+            moonOrbiter: { id: 'moonOrbiter', name: 'Moon Orbiter', desc: 'Orbits a glowing star ring around itself.', icon: 'moon', color: '#c084fc', beamColor: '#e879f9', range: 120, damage: 15, fireRate: 1.2, cost: 250, costMult: 1.6, requiresUpgrade: 'unlockOrbiter', minLevel: 3 },
+            frostEmitter: { id: 'frostEmitter', name: 'Frost Emitter', desc: 'Fires freezing ice pulses.', icon: 'snowflake', color: '#67e8f9', beamColor: '#22d3ee', range: 170, damage: 22, fireRate: 0.6, cost: 450, costMult: 1.65, requiresUpgrade: 'unlockFrost', minLevel: 4 },
+            novaMortar: { id: 'novaMortar', name: 'Nova Mortar', desc: 'Launches heavy starlight blasts.', icon: 'crosshair', color: '#f43f5e', beamColor: '#fb7185', range: 220, damage: 45, fireRate: 0.4, cost: 750, costMult: 1.7, requiresUpgrade: 'unlockMortar', minLevel: 5 },
+            plasmaChain: { id: 'plasmaChain', name: 'Plasma Chain', desc: 'Fires lightning that chains across spheres.', icon: 'activity', color: '#a855f7', beamColor: '#c084fc', range: 190, damage: 35, fireRate: 0.9, cost: 1200, costMult: 1.75, requiresUpgrade: 'unlockPlasma', minLevel: 6 },
+            auraSiphon: { id: 'auraSiphon', name: 'Void Siphon', desc: 'Siphons Dark Matter from nearby spheres.', icon: 'radio', color: '#2dd4bf', beamColor: '#2dd4bf', range: 180, damage: 2, fireRate: 2, cost: 2000, costMult: 1.8, requiresUpgrade: 'unlockSiphon', minLevel: 7 },
+            chronosField: { id: 'chronosField', name: 'Chronos Field', desc: 'Emits time-warp pulses that slow spheres.', icon: 'clock', color: '#f59e0b', beamColor: '#fbbf24', range: 150, damage: 18, fireRate: 1.5, cost: 3500, costMult: 1.85, requiresUpgrade: 'unlockChronos', minLevel: 8 },
+            blackHoleTurret: { id: 'blackHoleTurret', name: 'Singularity Core', desc: 'Creates micro gravity wells pulling dark spheres.', icon: 'disc', color: '#e11d48', beamColor: '#f43f5e', range: 230, damage: 70, fireRate: 0.5, cost: 6000, costMult: 1.9, requiresUpgrade: 'unlockBlackHole', minLevel: 9 },
+            nebulaPrism: { id: 'nebulaPrism', name: 'Nebula Prism', desc: 'Fires rainbow cosmic rays.', icon: 'sparkles', color: '#f472b6', beamColor: '#f472b6', range: 250, damage: 110, fireRate: 0.7, cost: 12000, costMult: 2.0, requiresUpgrade: 'unlockNebula', minLevel: 10 }
+        };
+
+        let audioCtx = null;
+        let audioMuted = false;
+        let spawnTimerId = null;
+        let lastRenderedDM = -1;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        const NOTES = {
+            C3: 130.81, G3: 196.00, C4: 261.63, D4: 293.66, Eb4: 311.13, F4: 349.23, G4: 392.00,
+            Bb4: 466.16, C5: 523.25, D5: 587.33, Eb5: 622.25, G5: 783.99, Bb5: 932.33
+        };
+
+        function playTurretSound(turretType) {
+            if (audioMuted) return;
+            initAudio();
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            switch(turretType) {
+                case 'starCannon':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(NOTES.G4, now);
+                    osc.frequency.exponentialRampToValueAtTime(NOTES.D5, now + 0.12);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    break;
+                case 'teslaCoil':
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(NOTES.C4, now);
+                    osc.frequency.setValueAtTime(NOTES.Bb4, now + 0.04);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    break;
+                case 'laserBeam':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(NOTES.Eb4, now);
+                    osc.frequency.linearRampToValueAtTime(NOTES.G4, now + 0.05);
+                    gain.gain.setValueAtTime(0.02, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    break;
+                case 'moonOrbiter':
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(NOTES.C5, now);
+                    osc.frequency.exponentialRampToValueAtTime(NOTES.Bb5, now + 0.2);
+                    gain.gain.setValueAtTime(0.09, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                    break;
+                case 'frostEmitter':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(NOTES.C5, now);
+                    osc.frequency.exponentialRampToValueAtTime(NOTES.G5, now + 0.15);
+                    gain.gain.setValueAtTime(0.07, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                    break;
+                case 'novaMortar':
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(NOTES.G3, now);
+                    osc.frequency.exponentialRampToValueAtTime(NOTES.C3, now + 0.25);
+                    gain.gain.setValueAtTime(0.18, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                    break;
+                case 'plasmaChain':
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(NOTES.F4, now);
+                    osc.frequency.setValueAtTime(NOTES.C5, now + 0.03);
+                    gain.gain.setValueAtTime(0.04, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                    break;
+                case 'auraSiphon':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(NOTES.D4, now);
+                    osc.frequency.linearRampToValueAtTime(NOTES.F4, now + 0.08);
+                    gain.gain.setValueAtTime(0.03, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                    break;
+                case 'chronosField':
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(NOTES.Bb4, now);
+                    osc.frequency.setValueAtTime(NOTES.D5, now + 0.05);
+                    gain.gain.setValueAtTime(0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                    break;
+                case 'blackHoleTurret':
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(NOTES.G3, now);
+                    osc.frequency.exponentialRampToValueAtTime(65, now + 0.3);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    break;
+                case 'nebulaPrism':
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(NOTES.C5, now);
+                    osc.frequency.setValueAtTime(NOTES.Eb5, now + 0.04);
+                    osc.frequency.setValueAtTime(NOTES.G5, now + 0.08);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+                    break;
+                default:
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(NOTES.C4, now);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            }
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        }
+
+        function playPopSound(pitchMult = 1) {
+            if (audioMuted) return;
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            const baseFreq = (280 + Math.random() * 120) * pitchMult;
+            osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.2, audioCtx.currentTime + 0.08);
+
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playChimeSound() {
+            if (audioMuted) return;
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            const notes = [NOTES.C5, NOTES.Eb5, NOTES.G5, NOTES.Bb5];
+            const note = notes[Math.floor(Math.random() * notes.length)];
+            osc.frequency.setValueAtTime(note, audioCtx.currentTime);
+
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let darkSpheres = [];
+        let projectiles = [];
+        let visualParticles = [];
+        let bgStars = [];
+        let mousePos = { x: -1000, y: -1000 };
+
+        function getCurrentSpawnInterval() {
+            const levelBonus = (gameState.level - 1) * 100;
+            const upgradeBonus = (gameState.upgrades.fasterSpawn || 0) * 250;
+            return Math.max(300, gameState.baseSpawnIntervalMs - levelBonus - upgradeBonus);
+        }
+
+        function restartSpawnLoop() {
+            if (spawnTimerId) clearInterval(spawnTimerId);
+            spawnTimerId = setInterval(() => {
+                spawnDarkSphere();
+                if (gameState.level >= 3 && Math.random() < 0.3) {
+                    spawnDarkSphere();
+                }
+            }, getCurrentSpawnInterval());
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initBackgroundStars();
+        }
+
+        function initBackgroundStars() {
+            bgStars = [];
+            const count = Math.floor((canvas.width * canvas.height) / 5000);
+            for (let i = 0; i < count; i++) {
+                bgStars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 1.5 + 0.3,
+                    alpha: Math.random(),
+                    speed: Math.random() * 0.01 + 0.003
+                });
+            }
+        }
+
+        function spawnDarkSphere(forcedBoss = null) {
+            if (darkSpheres.length >= gameState.maxDarkSpheres && !forcedBoss) return;
+
+            const isBoss = !!forcedBoss;
+            const bossConfig = forcedBoss;
+
+            const baseRadius = isBoss ? (85 + Math.random() * 20) : (28 + Math.random() * 22);
+            const padding = baseRadius + 40;
+            
+            const x = padding + Math.random() * (canvas.width - padding * 2);
+            const y = padding + Math.random() * (canvas.height - padding * 2);
+
+            let auraColor = '#c084fc';
+            let multiplier = 1 + (gameState.level - 1) * 0.2;
+            let sphereTitle = null;
+
+            if (!isBoss) {
+                const rand = Math.random();
+                if (rand < 0.05 && gameState.level >= 5) {
+                    auraColor = '#fef08a';
+                    multiplier *= 20.0;
+                    sphereTitle = "✨ COSMIC MATTER";
+                } else if (rand < 0.15 && gameState.level >= 3) {
+                    auraColor = '#6366f1';
+                    multiplier *= 8.0;
+                    sphereTitle = "🌀 ANTIMATTER";
+                } else if (rand < 0.28) {
+                    auraColor = '#38bdf8';
+                    multiplier *= 2.5;
+                } else if (rand < 0.40) {
+                    auraColor = '#facc15';
+                    multiplier *= 4.0;
+                }
+            } else {
+                auraColor = bossConfig.color;
+                multiplier = bossConfig.reward / 30;
+                sphereTitle = bossConfig.title;
+            }
+
+            const maxMass = baseRadius * (isBoss ? bossConfig.massMult : 3.5) * (1 + (gameState.level - 1) * 0.25);
+
+            darkSpheres.push({
+                id: 'sphere-' + Date.now() + '-' + Math.floor(Math.random()*1000),
+                x: x,
+                y: y,
+                radius: baseRadius,
+                maxRadius: baseRadius * 1.5,
+                mass: maxMass,
+                maxMass: maxMass,
+                vx: (Math.random() - 0.5) * (0.4 + gameState.level * 0.05),
+                vy: (Math.random() - 0.5) * (0.4 + gameState.level * 0.05),
+                auraColor: auraColor,
+                isBoss: isBoss,
+                title: sphereTitle,
+                bossReward: isBoss ? bossConfig.reward : 0,
+                rewardMult: multiplier,
+                pulseAngle: Math.random() * Math.PI * 2
+            });
+
+            updateHUD();
+        }
+
+        function checkSpawnBossForLevel(level) {
+            if (level % 3 === 0) {
+                const availableBosses = BOSS_TYPES.filter(b => b.minLevel <= level);
+                const chosenBoss = availableBosses[availableBosses.length - 1] || BOSS_TYPES[0];
+                spawnDarkSphere(chosenBoss);
+                showToast(`🚨 WARNING: ${chosenBoss.name} Has Spawned!`);
+            }
+        }
+
+        function shrinkSphere(sphere, damage, posX = sphere.x, posY = sphere.y, isClick = false) {
+            sphere.mass -= damage;
+            
+            const massRatio = Math.max(0, sphere.mass / sphere.maxMass);
+            sphere.radius = sphere.maxRadius * Math.pow(massRatio, 0.5);
+
+            const dmGained = Math.ceil(damage * 0.25 * gameState.dmMultiplier * sphere.rewardMult);
+            if (dmGained > 0) {
+                addDarkMatter(dmGained);
+            }
+
+            for (let i = 0; i < (isClick ? 5 : 2); i++) {
+                visualParticles.push({
+                    x: posX,
+                    y: posY,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3,
+                    radius: Math.random() * 3 + 1,
+                    color: sphere.auraColor,
+                    alpha: 1,
+                    life: 0.4
+                });
+            }
+
+            if (sphere.mass <= 0 || sphere.radius <= 4) {
+                popSphere(sphere, posX, posY);
+            }
+        }
+
+        function popSphere(sphere, posX, posY) {
+            const bonusDM = sphere.isBoss ? sphere.bossReward : Math.round(35 * gameState.dmMultiplier * sphere.rewardMult);
+            addDarkMatter(bonusDM);
+            
+            gameState.totalSpheresPopped++;
+            gameState.levelPoppedSpheres++;
+
+            if (sphere.isBoss) playChimeSound();
+            else playPopSound(1.2);
+
+            createFloatingText(`+${formatNumber(bonusDM)} DM`, posX, posY, sphere.auraColor);
+
+            for (let i = 0; i < (sphere.isBoss ? 45 : 16); i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * (sphere.isBoss ? 6 : 3.5) + 1;
+                visualParticles.push({
+                    x: posX,
+                    y: posY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 4 + 1.5,
+                    color: sphere.auraColor,
+                    alpha: 1,
+                    life: 0.7
+                });
+            }
+
+            darkSpheres = darkSpheres.filter(s => s.id !== sphere.id);
+            
+            checkLevelProgress();
+            updateHUD();
+        }
+
+        function checkLevelProgress() {
+            if (gameState.levelPoppedSpheres >= gameState.spheresPerLevel) {
+                gameState.level++;
+                gameState.levelPoppedSpheres = 0;
+                gameState.spheresPerLevel = Math.floor(gameState.spheresPerLevel * 1.3);
+                
+                const levelBonus = gameState.level * 100;
+                addDarkMatter(levelBonus);
+                
+                playChimeSound();
+                showToast(`🎉 LEVEL UP! Level ${gameState.level} reached! (+${formatNumber(levelBonus)} DM)`);
+                
+                checkSpawnBossForLevel(gameState.level);
+                restartSpawnLoop();
+                saveGame();
+                renderSidebar();
+            }
+        }
+
+        function createFloatingText(text, x, y, color = '#f3e8ff') {
+            const el = document.createElement('div');
+            el.className = 'pop-text';
+            el.innerText = text;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            el.style.color = color;
+            document.body.appendChild(el);
+
+            setTimeout(() => {
+                if (el.parentNode) el.parentNode.removeChild(el);
+            }, 1000);
+        }
+
+        function renderLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 100, canvas.width/2, canvas.height/2, canvas.width);
+            grad.addColorStop(0, '#0d0926');
+            grad.addColorStop(0.6, '#080518');
+            grad.addColorStop(1, '#03020a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            bgStars.forEach(s => {
+                s.alpha += s.speed;
+                if (s.alpha > 1 || s.alpha < 0) s.speed = -s.speed;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, Math.min(1, s.alpha));
+                ctx.fillStyle = '#e9d5ff';
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            updateAndRenderTurrets();
+            updateAndRenderSpheres();
+            updateAndRenderProjectiles();
+            updateAndRenderParticles();
+            renderPlacementPreview();
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        function updateAndRenderSpheres() {
+            darkSpheres.forEach(sphere => {
+                sphere.x += sphere.vx;
+                sphere.y += sphere.vy;
+
+                if (sphere.x - sphere.radius < 0 || sphere.x + sphere.radius > canvas.width) sphere.vx *= -1;
+                if (sphere.y - sphere.radius < 0 || sphere.y + sphere.radius > canvas.height) sphere.vy *= -1;
+
+                if (sphere.mass < sphere.maxMass) {
+                    sphere.mass += 0.05 * (1 + gameState.level * 0.1);
+                    const massRatio = Math.max(0, sphere.mass / sphere.maxMass);
+                    sphere.radius = sphere.maxRadius * Math.pow(massRatio, 0.5);
+                }
+
+                sphere.pulseAngle += 0.03;
+                const glowPulse = Math.sin(sphere.pulseAngle) * 4;
+
+                ctx.save();
+
+                ctx.shadowColor = sphere.auraColor;
+                ctx.shadowBlur = 18 + glowPulse;
+                ctx.strokeStyle = sphere.auraColor;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(sphere.x, sphere.y, Math.max(2, sphere.radius + 3), 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = '#030208';
+                ctx.beginPath();
+                ctx.arc(sphere.x, sphere.y, Math.max(1, sphere.radius), 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(sphere.x, sphere.y, Math.max(1, sphere.radius * 0.6), 0, Math.PI * 2);
+                ctx.stroke();
+
+                if (sphere.title) {
+                    ctx.fillStyle = sphere.auraColor;
+                    ctx.font = sphere.isBoss ? '16px Fredoka' : '12px Fredoka';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(sphere.title, sphere.x, sphere.y - sphere.radius - 12);
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function drawCustomTurretModel(turret, config) {
+            const time = Date.now() * 0.003;
+            ctx.save();
+            ctx.translate(turret.x, turret.y);
+
+            switch(turret.type) {
+                case 'starCannon':
+                    ctx.shadowColor = config.color;
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = '#fef08a';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#facc15';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 16, time, time + Math.PI * 1.5);
+                    ctx.stroke();
+                    break;
+
+                case 'teslaCoil':
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(-8, -4, 16, 18);
+
+                    ctx.shadowColor = '#818cf8';
+                    ctx.shadowBlur = 15;
+                    ctx.fillStyle = '#a5b4fc';
+                    ctx.beginPath();
+                    ctx.arc(0, -8, 11, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#e0e7ff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(0, -8, 15 + Math.sin(time * 3) * 2, 0, Math.PI * 2);
+                    ctx.stroke();
+                    break;
+
+                case 'laserBeam':
+                    ctx.fillStyle = '#0284c7';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -18);
+                    ctx.lineTo(14, 10);
+                    ctx.lineTo(-14, 10);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.shadowColor = '#38bdf8';
+                    ctx.shadowBlur = 12;
+                    ctx.fillStyle = '#bae6fd';
+                    ctx.beginPath();
+                    ctx.arc(0, -2, 7, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+
+                case 'moonOrbiter':
+                    ctx.shadowColor = '#c084fc';
+                    ctx.shadowBlur = 12;
+                    ctx.fillStyle = '#e879f9';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#1e1b4b';
+                    ctx.beginPath();
+                    ctx.arc(5, -4, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+
+                case 'frostEmitter':
+                    ctx.shadowColor = '#67e8f9';
+                    ctx.shadowBlur = 14;
+                    ctx.strokeStyle = '#22d3ee';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (i * Math.PI) / 3;
+                        const x = Math.cos(angle) * 16;
+                        const y = Math.sin(angle) * 16;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#cffafe';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+
+                case 'novaMortar':
+                    ctx.fillStyle = '#475569';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.shadowColor = '#f43f5e';
+                    ctx.shadowBlur = 12;
+                    ctx.fillStyle = '#fb7185';
+                    ctx.fillRect(-6, -18, 12, 14);
+                    break;
+
+                case 'plasmaChain':
+                    ctx.fillStyle = '#581c87';
+                    ctx.fillRect(-14, -8, 28, 16);
+
+                    ctx.shadowColor = '#a855f7';
+                    ctx.shadowBlur = 14;
+                    ctx.fillStyle = '#c084fc';
+                    ctx.beginPath();
+                    ctx.arc(-8, 0, 6, 0, Math.PI * 2);
+                    ctx.arc(8, 0, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+
+                case 'auraSiphon':
+                    ctx.strokeStyle = '#2dd4bf';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 16, time, time + Math.PI * 1.2);
+                    ctx.stroke();
+
+                    ctx.shadowColor = '#2dd4bf';
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = '#99f6e4';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+
+                case 'chronosField':
+                    ctx.save();
+                    ctx.rotate(time);
+                    ctx.shadowColor = '#f59e0b';
+                    ctx.shadowBlur = 12;
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for (let i = 0; i < 8; i++) {
+                        const a = (i * Math.PI) / 4;
+                        const r = i % 2 === 0 ? 16 : 8;
+                        const x = Math.cos(a) * r;
+                        const y = Math.sin(a) * r;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.restore();
+                    break;
+
+                case 'blackHoleTurret':
+                    ctx.shadowColor = '#e11d48';
+                    ctx.shadowBlur = 18;
+                    ctx.fillStyle = '#030208';
+                    ctx.strokeStyle = '#f43f5e';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#fda4af';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+
+                case 'nebulaPrism':
+                    ctx.shadowColor = '#f472b6';
+                    ctx.shadowBlur = 16;
+                    ctx.fillStyle = '#f472b6';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -18);
+                    ctx.lineTo(14, 0);
+                    ctx.lineTo(0, 18);
+                    ctx.lineTo(-14, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+
+                default:
+                    ctx.fillStyle = config.color;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                    ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function updateAndRenderTurrets() {
+            const now = Date.now();
+
+            gameState.placedTurrets.forEach(turret => {
+                const config = WEAPON_TYPES[turret.type];
+                
+                let target = null;
+                let minDist = config.range;
+
+                darkSpheres.forEach(s => {
+                    const dist = Math.hypot(s.x - turret.x, s.y - turret.y);
+                    if (dist < minDist + s.radius) {
+                        minDist = dist;
+                        target = s;
+                    }
+                });
+
+                const totalDmgMult = (1 + (gameState.upgrades.turretDamageAll * 0.25));
+                const totalRateMult = (1 + (gameState.upgrades.turretSpeedAll * 0.2));
+
+                const attackInterval = (1000 / (config.fireRate * totalRateMult));
+
+                if (target && now - turret.lastFired >= attackInterval) {
+                    turret.lastFired = now;
+
+                    playTurretSound(turret.type);
+
+                    if (turret.type === 'teslaCoil') {
+                        darkSpheres.forEach(s => {
+                            if (Math.hypot(s.x - turret.x, s.y - turret.y) < config.range + s.radius) {
+                                shrinkSphere(s, config.damage * totalDmgMult, s.x, s.y);
+                            }
+                        });
+                        turret.teslaPulseTimer = 8;
+                    } else if (turret.type === 'laserBeam') {
+                        shrinkSphere(target, config.damage * totalDmgMult, target.x, target.y);
+                        turret.beamTarget = target;
+                    } else if (turret.type === 'starCannon') {
+                        projectiles.push({
+                            x: turret.x,
+                            y: turret.y,
+                            targetX: target.x,
+                            targetY: target.y,
+                            targetSphere: target,
+                            speed: 8,
+                            damage: config.damage * totalDmgMult,
+                            color: config.color,
+                            type: 'star'
+                        });
+                    } else if (turret.type === 'frostEmitter') {
+                        projectiles.push({
+                            x: turret.x,
+                            y: turret.y,
+                            targetX: target.x,
+                            targetY: target.y,
+                            targetSphere: target,
+                            speed: 7,
+                            damage: config.damage * totalDmgMult,
+                            color: config.color,
+                            type: 'frost'
+                        });
+                    } else if (turret.type === 'novaMortar') {
+                        projectiles.push({
+                            x: turret.x,
+                            y: turret.y,
+                            targetX: target.x,
+                            targetY: target.y,
+                            speed: 4,
+                            damage: config.damage * totalDmgMult,
+                            color: config.color,
+                            type: 'mortar',
+                            radius: 90
+                        });
+                    } else if (turret.type === 'plasmaChain') {
+                        let current = target;
+                        let chained = [current];
+                        shrinkSphere(current, config.damage * totalDmgMult, current.x, current.y);
+                        
+                        for (let c = 0; c < 2; c++) {
+                            let nextDist = 180;
+                            let nextSphere = null;
+                            darkSpheres.forEach(s => {
+                                if (!chained.includes(s)) {
+                                    const d = Math.hypot(s.x - current.x, s.y - current.y);
+                                    if (d < nextDist) {
+                                        nextDist = d;
+                                        nextSphere = s;
+                                    }
+                                }
+                            });
+                            if (nextSphere) {
+                                chained.push(nextSphere);
+                                shrinkSphere(nextSphere, (config.damage * totalDmgMult) * 0.7, nextSphere.x, nextSphere.y);
+                                current = nextSphere;
+                            } else break;
+                        }
+                        turret.chainTargets = chained;
+                    } else if (turret.type === 'auraSiphon') {
+                        darkSpheres.forEach(s => {
+                            if (Math.hypot(s.x - turret.x, s.y - turret.y) < config.range + s.radius) {
+                                shrinkSphere(s, config.damage * totalDmgMult, s.x, s.y);
+                            }
+                        });
+                    } else if (turret.type === 'chronosField') {
+                        darkSpheres.forEach(s => {
+                            if (Math.hypot(s.x - turret.x, s.y - turret.y) < config.range + s.radius) {
+                                shrinkSphere(s, config.damage * totalDmgMult, s.x, s.y);
+                                s.vx *= 0.95;
+                                s.vy *= 0.95;
+                            }
+                        });
+                    } else if (turret.type === 'blackHoleTurret') {
+                        darkSpheres.forEach(s => {
+                            const d = Math.hypot(s.x - turret.x, s.y - turret.y);
+                            if (d < config.range + s.radius) {
+                                shrinkSphere(s, config.damage * totalDmgMult, s.x, s.y);
+                                const angle = Math.atan2(turret.y - s.y, turret.x - s.x);
+                                s.x += Math.cos(angle) * 1.5;
+                                s.y += Math.sin(angle) * 1.5;
+                            }
+                        });
+                    } else if (turret.type === 'nebulaPrism') {
+                        projectiles.push({
+                            x: turret.x,
+                            y: turret.y,
+                            targetX: target.x,
+                            targetY: target.y,
+                            targetSphere: target,
+                            speed: 9,
+                            damage: config.damage * totalDmgMult,
+                            color: config.color,
+                            type: 'prism'
+                        });
+                    }
+                }
+
+                ctx.save();
+
+                if (gameState.deleteMode) {
+                    ctx.strokeStyle = '#f87171';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(turret.x, turret.y, 22, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = 'rgba(192, 132, 252, 0.12)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath();
+                    ctx.arc(turret.x, turret.y, config.range, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                if (turret.type === 'teslaCoil' && turret.teslaPulseTimer > 0) {
+                    turret.teslaPulseTimer--;
+                    ctx.strokeStyle = '#818cf8';
+                    ctx.shadowColor = '#a5b4fc';
+                    ctx.shadowBlur = 12;
+                    ctx.lineWidth = 2;
+
+                    darkSpheres.forEach(s => {
+                        if (Math.hypot(s.x - turret.x, s.y - turret.y) < config.range + s.radius) {
+                            ctx.beginPath();
+                            ctx.moveTo(turret.x, turret.y);
+                            const midX = (turret.x + s.x) / 2 + (Math.random() - 0.5) * 20;
+                            const midY = (turret.y + s.y) / 2 + (Math.random() - 0.5) * 20;
+                            ctx.lineTo(midX, midY);
+                            ctx.lineTo(s.x, s.y);
+                            ctx.stroke();
+                        }
+                    });
+                }
+
+                if (turret.type === 'laserBeam' && turret.beamTarget && darkSpheres.includes(turret.beamTarget)) {
+                    ctx.strokeStyle = config.beamColor;
+                    ctx.shadowColor = config.beamColor;
+                    ctx.shadowBlur = 12;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(turret.x, turret.y);
+                    ctx.lineTo(turret.beamTarget.x, turret.beamTarget.y);
+                    ctx.stroke();
+                }
+
+                if (turret.type === 'plasmaChain' && turret.chainTargets && turret.chainTargets.length > 1) {
+                    ctx.strokeStyle = config.beamColor;
+                    ctx.shadowColor = config.beamColor;
+                    ctx.shadowBlur = 10;
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.moveTo(turret.x, turret.y);
+                    turret.chainTargets.forEach(t => {
+                        if (darkSpheres.includes(t)) {
+                            ctx.lineTo(t.x, t.y);
+                        }
+                    });
+                    ctx.stroke();
+                }
+
+                if (turret.type === 'moonOrbiter') {
+                    turret.orbitAngle = (turret.orbitAngle || 0) + 0.05;
+                    const orbX = turret.x + Math.cos(turret.orbitAngle) * (config.range * 0.7);
+                    const orbY = turret.y + Math.sin(turret.orbitAngle) * (config.range * 0.7);
+
+                    ctx.fillStyle = '#e879f9';
+                    ctx.shadowColor = '#e879f9';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.arc(orbX, orbY, 7, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    darkSpheres.forEach(s => {
+                        if (Math.hypot(s.x - orbX, s.y - orbY) < s.radius + 7) {
+                            shrinkSphere(s, config.damage * totalDmgMult, orbX, orbY);
+                        }
+                    });
+                }
+
+                drawCustomTurretModel(turret, config);
+
+                ctx.restore();
+            });
+        }
+
+        function updateAndRenderProjectiles() {
+            projectiles.forEach((p, idx) => {
+                const dx = p.targetX - p.x;
+                const dy = p.targetY - p.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < p.speed) {
+                    if (p.type === 'mortar') {
+                        darkSpheres.forEach(s => {
+                            if (Math.hypot(s.x - p.targetX, s.y - p.targetY) < p.radius + s.radius) {
+                                shrinkSphere(s, p.damage, s.x, s.y);
+                            }
+                        });
+                        for (let i = 0; i < 20; i++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            visualParticles.push({
+                                x: p.targetX,
+                                y: p.targetY,
+                                vx: Math.cos(angle) * 4,
+                                vy: Math.sin(angle) * 4,
+                                radius: 3,
+                                color: p.color,
+                                alpha: 1,
+                                life: 0.5
+                            });
+                        }
+                    } else if (p.targetSphere && darkSpheres.includes(p.targetSphere)) {
+                        shrinkSphere(p.targetSphere, p.damage, p.targetX, p.targetY);
+                        if (p.type === 'frost') {
+                            p.targetSphere.vx *= 0.5;
+                            p.targetSphere.vy *= 0.5;
+                        }
+                    }
+
+                    projectiles.splice(idx, 1);
+                } else {
+                    p.x += (dx / dist) * p.speed;
+                    p.y += (dy / dist) * p.speed;
+
+                    ctx.save();
+                    ctx.fillStyle = p.color;
+                    ctx.shadowColor = p.color;
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.type === 'mortar' ? 6 : 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+        }
+
+        function updateAndRenderParticles() {
+            visualParticles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.025;
+
+                if (p.alpha <= 0) {
+                    visualParticles.splice(idx, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, p.alpha);
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+        }
+
+        function renderPlacementPreview() {
+            if (!gameState.selectedWeaponToPlace) return;
+
+            const config = WEAPON_TYPES[gameState.selectedWeaponToPlace];
+            if (!config) return;
+
+            ctx.save();
+            ctx.strokeStyle = config.color;
+            ctx.fillStyle = 'rgba(192, 132, 252, 0.08)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 6]);
+
+            ctx.beginPath();
+            ctx.arc(mousePos.x, mousePos.y, config.range, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = config.color;
+            ctx.globalAlpha = 0.6;
+            ctx.beginPath();
+            ctx.arc(mousePos.x, mousePos.y, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        window.addEventListener('pointermove', (e) => {
+            mousePos.x = e.clientX;
+            mousePos.y = e.clientY;
+        });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+
+            if (gameState.deleteMode) {
+                let deleted = false;
+                for (let i = gameState.placedTurrets.length - 1; i >= 0; i--) {
+                    const turret = gameState.placedTurrets[i];
+                    if (Math.hypot(turret.x - clickX, turret.y - clickY) <= 24) {
+                        const config = WEAPON_TYPES[turret.type];
+                        const refundCost = Math.floor(getWeaponCost(config) * 0.75);
+                        
+                        addDarkMatter(refundCost);
+                        gameState.placedTurrets.splice(i, 1);
+                        
+                        playChimeSound();
+                        showToast(`Sold ${config.name} (+${formatNumber(refundCost)} DM)`);
+                        createFloatingText(`+${formatNumber(refundCost)} DM`, clickX, clickY, '#f87171');
+                        
+                        recalculateDPS();
+                        updateHUD();
+                        renderSidebar();
+                        saveGame();
+                        deleted = true;
+                        break;
+                    }
+                }
+                if (deleted) return;
+            }
+
+            if (gameState.selectedWeaponToPlace) {
+                placeWeapon(gameState.selectedWeaponToPlace, clickX, clickY);
+                return;
+            }
+
+            let hitSphere = false;
+            for (let i = darkSpheres.length - 1; i >= 0; i--) {
+                const s = darkSpheres[i];
+                const dist = Math.hypot(s.x - clickX, s.y - clickY);
+                
+                if (dist <= s.radius + 15) {
+                    shrinkSphere(s, gameState.clickPower, clickX, clickY, true);
+                    playPopSound(1.1);
+                    hitSphere = true;
+                    gameState.totalClicks++;
+                    break;
+                }
+            }
+
+            if (!hitSphere) {
+                playTurretSound('starCannon');
+                gameState.totalClicks++;
+                const bonusDMEarned = Math.max(1, Math.floor(gameState.clickPower * 0.15));
+                addDarkMatter(bonusDMEarned);
+                
+                createFloatingText(`+${bonusDMEarned} DM`, clickX, clickY, '#e879f9');
+
+                for (let i = 0; i < 5; i++) {
+                    visualParticles.push({
+                        x: clickX,
+                        y: clickY,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: (Math.random() - 0.5) * 3,
+                        radius: Math.random() * 2.5 + 1,
+                        color: '#c084fc',
+                        alpha: 1,
+                        life: 0.35
+                    });
+                }
+            }
+        });
+
+        function toggleDeleteMode(enable) {
+            gameState.deleteMode = enable !== undefined ? enable : !gameState.deleteMode;
+            if (gameState.deleteMode) {
+                cancelPlacement();
+                document.getElementById('delete-banner').classList.remove('hidden');
+            } else {
+                document.getElementById('delete-banner').classList.add('hidden');
+            }
+        }
+
+        document.getElementById('btn-delete-mode').addEventListener('click', () => toggleDeleteMode());
+        document.getElementById('btn-cancel-delete').addEventListener('click', () => toggleDeleteMode(false));
+
+        function useAbility(type) {
+            if (!gameState.abilitiesUnlocked[type]) {
+                showToast(`Unlock this ability in the Cosmic tab first!`);
+                return;
+            }
+
+            if (gameState.cooldowns[type] > 0) {
+                showToast("Ability on cooldown!");
+                return;
+            }
+
+            if (type === 'freeze') {
+                darkSpheres.forEach(s => {
+                    s.vx *= 0.15;
+                    s.vy *= 0.15;
+                });
+                playChimeSound();
+                showToast("❄️ Freeze Blast activated! All spheres slowed!");
+                gameState.cooldowns.freeze = 12;
+            } else if (type === 'chain') {
+                if (darkSpheres.length === 0) {
+                    showToast("No active spheres to chain!");
+                    return;
+                }
+                darkSpheres.forEach(s => {
+                    shrinkSphere(s, gameState.clickPower * 3.5, s.x, s.y);
+                });
+                playTurretSound('plasmaChain');
+                showToast("⚡ Chain Arc strike activated!");
+                gameState.cooldowns.chain = 8;
+            } else if (type === 'nova') {
+                darkSpheres.forEach(s => {
+                    shrinkSphere(s, gameState.clickPower * 8, s.x, s.y);
+                });
+                playChimeSound();
+                showToast("💥 Supernova unleashed!");
+                gameState.cooldowns.nova = 25;
+            }
+
+            updateAbilityUI();
+        }
+
+        document.getElementById('ability-freeze').addEventListener('click', () => useAbility('freeze'));
+        document.getElementById('ability-chain').addEventListener('click', () => useAbility('chain'));
+        document.getElementById('ability-nova').addEventListener('click', () => useAbility('nova'));
+
+        function updateAbilityUI() {
+            const btnFreeze = document.getElementById('ability-freeze');
+            const btnChain = document.getElementById('ability-chain');
+            const btnNova = document.getElementById('ability-nova');
+
+            if (gameState.abilitiesUnlocked.freeze) {
+                btnFreeze.classList.remove('opacity-40', 'cursor-not-allowed');
+                btnFreeze.classList.add('hover:bg-cyan-900/80', 'active:scale-95');
+                document.getElementById('cd-freeze').innerText = gameState.cooldowns.freeze > 0 ? `(${gameState.cooldowns.freeze}s)` : 'READY';
+            } else {
+                document.getElementById('cd-freeze').innerText = '🔒';
+            }
+
+            if (gameState.abilitiesUnlocked.chain) {
+                btnChain.classList.remove('opacity-40', 'cursor-not-allowed');
+                btnChain.classList.add('hover:bg-indigo-900/80', 'active:scale-95');
+                document.getElementById('cd-chain').innerText = gameState.cooldowns.chain > 0 ? `(${gameState.cooldowns.chain}s)` : 'READY';
+            } else {
+                document.getElementById('cd-chain').innerText = '🔒';
+            }
+
+            if (gameState.abilitiesUnlocked.nova) {
+                btnNova.classList.remove('opacity-40', 'cursor-not-allowed');
+                btnNova.classList.add('hover:bg-rose-900/80', 'active:scale-95');
+                document.getElementById('cd-nova').innerText = gameState.cooldowns.nova > 0 ? `(${gameState.cooldowns.nova}s)` : 'READY';
+            } else {
+                document.getElementById('cd-nova').innerText = '🔒';
+            }
+        }
+
+        setInterval(() => {
+            let changed = false;
+            Object.keys(gameState.cooldowns).forEach(k => {
+                if (gameState.cooldowns[k] > 0) {
+                    gameState.cooldowns[k]--;
+                    changed = true;
+                }
+            });
+            if (changed) updateAbilityUI();
+        }, 1000);
+
+        function startPlacement(weaponKey) {
+            const config = WEAPON_TYPES[weaponKey];
+            const cost = getWeaponCost(config);
+
+            if (gameState.darkMatter < cost) {
+                showToast("Not enough Dark Matter!");
+                return;
+            }
+
+            if (gameState.level < config.minLevel) {
+                showToast(`Requires Level ${config.minLevel}!`);
+                return;
+            }
+
+            toggleDeleteMode(false);
+            gameState.selectedWeaponToPlace = weaponKey;
+            
+            const banner = document.getElementById('placement-banner');
+            document.getElementById('placement-text').innerText = `Click on space to place ${config.name}`;
+            banner.classList.remove('hidden');
+        }
+
+        function cancelPlacement() {
+            gameState.selectedWeaponToPlace = null;
+            document.getElementById('placement-banner').classList.add('hidden');
+        }
+
+        document.getElementById('btn-cancel-placement').addEventListener('click', cancelPlacement);
+
+        function placeWeapon(weaponKey, x, y) {
+            const config = WEAPON_TYPES[weaponKey];
+            const cost = getWeaponCost(config);
+
+            if (gameState.darkMatter >= cost) {
+                gameState.darkMatter -= cost;
+                
+                gameState.placedTurrets.push({
+                    id: 'turret-' + Date.now(),
+                    type: weaponKey,
+                    x: x,
+                    y: y,
+                    lastFired: 0
+                });
+
+                playChimeSound();
+                showToast(`Placed ${config.name}!`);
+                
+                cancelPlacement();
+                recalculateDPS();
+                updateHUD();
+                renderSidebar();
+                saveGame();
+            }
+        }
+
+        function getWeaponCost(config) {
+            const count = gameState.placedTurrets.filter(t => t.type === config.id).length;
+            return Math.floor(config.cost * Math.pow(config.costMult, count));
+        }
+
+        function recalculateDPS() {
+            let totalDPS = 0;
+            gameState.placedTurrets.forEach(t => {
+                const config = WEAPON_TYPES[t.type];
+                const dmgMult = (1 + (gameState.upgrades.turretDamageAll * 0.25));
+                const rateMult = (1 + (gameState.upgrades.turretSpeedAll * 0.2));
+                totalDPS += (config.damage * config.fireRate * dmgMult * rateMult);
+            });
+            totalDPS += gameState.passiveDMPerSec;
+            document.getElementById('dps-disp').innerText = formatNumber(Math.round(totalDPS));
+        }
+
+        function addDarkMatter(amount) {
+            gameState.darkMatter += amount;
+            gameState.totalDMHarvested += amount;
+            updateHUD();
+        }
+
+        function formatNumber(num) {
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(1) + 'k';
+            return Math.floor(num).toLocaleString();
+        }
+
+        function updateHUD() {
+            document.getElementById('dm-counter').innerText = formatNumber(gameState.darkMatter);
+            document.getElementById('click-power-disp').innerText = formatNumber(gameState.clickPower);
+            document.getElementById('turret-count-disp').innerText = gameState.placedTurrets.length;
+            document.getElementById('orbs-count').innerText = darkSpheres.length;
+            document.getElementById('orbs-max').innerText = gameState.maxDarkSpheres;
+
+            document.getElementById('level-disp').innerText = gameState.level;
+            document.getElementById('level-popped-disp').innerText = gameState.levelPoppedSpheres;
+            document.getElementById('level-req-disp').innerText = gameState.spheresPerLevel;
+            
+            const pct = Math.min(100, Math.floor((gameState.levelPoppedSpheres / gameState.spheresPerLevel) * 100));
+            document.getElementById('level-progress-bar').style.width = `${pct}%`;
+
+            updateAbilityUI();
+        }
+
+        let activeTab = 'build';
+
+        const UPGRADE_ITEMS = [
+            { id: 'clickDamage', tab: 'upgrades', name: 'Shrink Ray Focus', desc: 'Increases click shrink damage (+8 dmg).', icon: 'pointer', baseCost: 15, costMult: 1.5, onBuy: () => { gameState.clickPower += 8; } },
+            { id: 'clickPowerMult', tab: 'upgrades', name: 'Hyper Pulse Clicker', desc: 'Boosts click power by +30.', icon: 'zap', baseCost: 150, costMult: 1.6, onBuy: () => { gameState.clickPower += 30; } },
+            { id: 'turretDamageAll', tab: 'upgrades', name: 'Starlight Amplifiers', desc: 'Increases ALL defense turret damage by +25%.', icon: 'shield', baseCost: 80, costMult: 1.6, onBuy: () => { recalculateDPS(); } },
+            { id: 'turretSpeedAll', tab: 'upgrades', name: 'Cosmic Clockwork', desc: 'Increases turret attack speed by +20%.', icon: 'clock', baseCost: 120, costMult: 1.6, onBuy: () => { recalculateDPS(); } },
+            { id: 'starlightHarvester', tab: 'cosmic', name: 'Passive Star Siphon', desc: 'Generates passive Dark Matter every second (+5 DM/s).', icon: 'sun', baseCost: 50, costMult: 1.5, onBuy: () => { gameState.passiveDMPerSec += 5; recalculateDPS(); } },
+            { id: 'unlockFreezeAbility', tab: 'cosmic', name: 'Unlock Freeze Blast Ability', desc: 'Unlocks active ability to slow all spheres on screen.', icon: 'snowflake', baseCost: 200, costMult: 1, maxLevel: 1, minLevel: 2, onBuy: () => { gameState.abilitiesUnlocked.freeze = true; } },
+            { id: 'unlockChainAbility', tab: 'cosmic', name: 'Unlock Chain Arc Ability', desc: 'Unlocks active ability to trigger lightning arcs.', icon: 'zap', baseCost: 600, costMult: 1, maxLevel: 1, minLevel: 4, onBuy: () => { gameState.abilitiesUnlocked.chain = true; } },
+            { id: 'unlockNovaAbility', tab: 'cosmic', name: 'Unlock Supernova Ability', desc: 'Unlocks active ability to deal screen-wide explosion damage.', icon: 'sparkles', baseCost: 2500, costMult: 1, maxLevel: 1, minLevel: 7, onBuy: () => { gameState.abilitiesUnlocked.nova = true; } },
+            { id: 'maxSphereCap', tab: 'cosmic', name: 'Cosmic Expansion', desc: 'Allows +2 more dark spheres to spawn simultaneously.', icon: 'maximize-2', baseCost: 100, costMult: 2.0, onBuy: () => { gameState.maxDarkSpheres += 2; } },
+            { id: 'fasterSpawn', tab: 'cosmic', name: 'Void Density', desc: 'Speeds up dark sphere spawn rate significantly.', icon: 'sparkles', baseCost: 200, costMult: 1.8, onBuy: () => { restartSpawnLoop(); } },
+            { id: 'unlockTesla', tab: 'cosmic', name: 'Unlock Tesla Coil', desc: 'Unlocks high-voltage shock arc defenses.', icon: 'zap-off', baseCost: 60, costMult: 1, maxLevel: 1, minLevel: 2, onBuy: () => {} },
+            { id: 'unlockBeam', tab: 'cosmic', name: 'Unlock Starlight Beam', desc: 'Unlocks continuous laser beam defenses.', icon: 'zap', baseCost: 110, costMult: 1, maxLevel: 1, minLevel: 2, onBuy: () => {} },
+            { id: 'unlockOrbiter', tab: 'cosmic', name: 'Unlock Moon Orbiter', desc: 'Unlocks orbiting moon defense rings.', icon: 'moon', baseCost: 250, costMult: 1, maxLevel: 1, minLevel: 3, onBuy: () => {} },
+            { id: 'unlockFrost', tab: 'cosmic', name: 'Unlock Frost Emitter', desc: 'Unlocks ice pulses that slow sphere expansion.', icon: 'snowflake', baseCost: 450, costMult: 1, maxLevel: 1, minLevel: 4, onBuy: () => {} },
+            { id: 'unlockMortar', tab: 'cosmic', name: 'Unlock Nova Mortar', desc: 'Unlocks heavy area starlight mortars.', icon: 'crosshair', baseCost: 750, costMult: 1, maxLevel: 1, minLevel: 5, onBuy: () => {} },
+            { id: 'unlockPlasma', tab: 'cosmic', name: 'Unlock Plasma Chain', desc: 'Unlocks plasma lightning that chains across spheres.', icon: 'activity', baseCost: 1200, costMult: 1, maxLevel: 1, minLevel: 6, onBuy: () => {} },
+            { id: 'unlockSiphon', tab: 'cosmic', name: 'Unlock Void Siphon', desc: 'Unlocks passive range siphon defenses.', icon: 'radio', baseCost: 2000, costMult: 1, maxLevel: 1, minLevel: 7, onBuy: () => {} },
+            { id: 'unlockChronos', tab: 'cosmic', name: 'Unlock Chronos Field', desc: 'Unlocks time-dilation field defenses.', icon: 'clock', baseCost: 3500, costMult: 1, maxLevel: 1, minLevel: 8, onBuy: () => {} },
+            { id: 'unlockBlackHole', tab: 'cosmic', name: 'Unlock Singularity Core', desc: 'Unlocks gravity wells that pull dark spheres.', icon: 'disc', baseCost: 6000, costMult: 1, maxLevel: 1, minLevel: 9, onBuy: () => {} },
+            { id: 'unlockNebula', tab: 'cosmic', name: 'Unlock Nebula Prism', desc: 'Unlocks splitting rainbow cosmic prism beams.', icon: 'sparkles', baseCost: 12000, costMult: 1, maxLevel: 1, minLevel: 10, onBuy: () => {} }
+        ];
+
+        function renderSidebar() {
+            const container = document.getElementById('sidebar-container');
+            container.innerHTML = '';
+
+            if (activeTab === 'build') {
+                Object.keys(WEAPON_TYPES).forEach(key => {
+                    const weapon = WEAPON_TYPES[key];
+                    if (weapon.requiresUpgrade && !gameState.upgrades[weapon.requiresUpgrade]) return;
+
+                    const cost = getWeaponCost(weapon);
+                    const canAfford = gameState.darkMatter >= cost;
+                    const levelUnlocked = gameState.level >= weapon.minLevel;
+                    const placedCount = gameState.placedTurrets.filter(t => t.type === weapon.id).length;
+
+                    const card = document.createElement('div');
+                    card.className = `weapon-card glass-panel p-3.5 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
+                        levelUnlocked && canAfford ? 'border-purple-500/40 hover:border-purple-400/80 bg-purple-950/20' : 'border-purple-900/20 opacity-75'
+                    }`;
+
+                    card.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="p-2.5 rounded-xl bg-purple-900/50 border border-purple-700/30 text-purple-200">
+                                <i data-lucide="${weapon.icon}" class="w-5 h-5"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-fredoka font-medium text-slate-100 text-sm truncate">${weapon.name}</h4>
+                                    <span class="text-[10px] bg-purple-900/60 text-purple-200 px-2 py-0.5 rounded-md font-mono">Owned: ${placedCount}</span>
+                                </div>
+                                <p class="text-xs text-purple-300/70 mt-1 leading-snug">${weapon.desc}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between pt-2 border-t border-purple-900/30">
+                            <div class="flex items-center gap-1 text-xs font-semibold ${canAfford ? 'text-amber-300' : 'text-purple-400/50'}">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>${formatNumber(cost)}</span>
+                            </div>
+                            <button data-type="weapon" data-key="${key}" class="place-btn text-xs px-3 py-1.5 rounded-xl font-semibold transition ${
+                                !levelUnlocked ? 'bg-slate-900/80 text-purple-400/50 border border-slate-800 cursor-not-allowed' :
+                                canAfford ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-900/40 active:scale-95' :
+                                'bg-purple-950/50 text-purple-400/40 border border-purple-900/30 cursor-not-allowed'
+                            }" ${!canAfford || !levelUnlocked ? 'disabled' : ''}>
+                                ${!levelUnlocked ? `Req Lvl ${weapon.minLevel}` : 'Place Defense'}
+                            </button>
+                        </div>
+                    `;
+
+                    card.querySelector('.place-btn').addEventListener('click', () => {
+                        startPlacement(key);
+                    });
+
+                    container.appendChild(card);
+                });
+            } else {
+                const filtered = UPGRADE_ITEMS.filter(item => item.tab === activeTab);
+
+                filtered.forEach(item => {
+                    const count = gameState.upgrades[item.id] || 0;
+                    const cost = Math.floor(item.baseCost * Math.pow(item.costMult, count));
+                    const isMax = item.maxLevel && count >= item.maxLevel;
+                    const levelUnlocked = !item.minLevel || gameState.level >= item.minLevel;
+                    const canAfford = gameState.darkMatter >= cost && !isMax && levelUnlocked;
+
+                    const card = document.createElement('div');
+                    card.className = `glass-panel p-3.5 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
+                        canAfford ? 'border-purple-500/40 hover:border-purple-400/80 bg-purple-950/20' : 'border-purple-900/20 opacity-75'
+                    }`;
+
+                    card.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="p-2.5 rounded-xl bg-purple-900/50 border border-purple-700/30 text-purple-200">
+                                <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="font-fredoka font-medium text-slate-100 text-sm truncate">${item.name}</h4>
+                                    <span class="text-[10px] bg-purple-900/60 text-purple-200 px-2 py-0.5 rounded-md font-mono">Lvl ${count}</span>
+                                </div>
+                                <p class="text-xs text-purple-300/70 mt-1 leading-snug">${item.desc}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between pt-2 border-t border-purple-900/30">
+                            <div class="flex items-center gap-1 text-xs font-semibold ${canAfford ? 'text-amber-300' : 'text-purple-400/50'}">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>${isMax ? 'MAXED' : formatNumber(cost)}</span>
+                            </div>
+                            <button data-type="upgrade" data-key="${item.id}" class="buy-btn text-xs px-3 py-1.5 rounded-xl font-semibold transition ${
+                                isMax ? 'bg-purple-900/30 text-purple-400/50 cursor-not-allowed' :
+                                !levelUnlocked ? 'bg-slate-900/80 text-purple-400/50 border border-slate-800 cursor-not-allowed' :
+                                canAfford ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-900/40 active:scale-95' :
+                                'bg-purple-950/50 text-purple-400/40 border border-purple-900/30 cursor-not-allowed'
+                            }" ${!canAfford || isMax ? 'disabled' : ''}>
+                                ${isMax ? 'Unlocked' : !levelUnlocked ? `Req Lvl ${item.minLevel}` : 'Buy'}
+                            </button>
+                        </div>
+                    `;
+
+                    card.querySelector('.buy-btn').addEventListener('click', () => {
+                        if (gameState.darkMatter >= cost && levelUnlocked) {
+                            gameState.darkMatter -= cost;
+                            gameState.upgrades[item.id] = count + 1;
+                            item.onBuy();
+                            playChimeSound();
+                            showToast(`Upgraded ${item.name}!`);
+                            saveGame();
+                            updateHUD();
+                            renderSidebar();
+                        }
+                    });
+
+                    container.appendChild(card);
+                });
+            }
+
+            safeCreateIcons();
+        }
+
+        // Hide/Show Sidebar Toggle Logic
+        const sidebarWrapper = document.getElementById('right-sidebar-wrapper');
+        const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+        const btnReopenSidebar = document.getElementById('btn-reopen-sidebar');
+
+        function toggleSidebar(hide) {
+            const isCollapsed = hide !== undefined ? hide : !sidebarWrapper.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                sidebarWrapper.classList.add('collapsed');
+                btnReopenSidebar.classList.remove('hidden');
+            } else {
+                sidebarWrapper.classList.remove('collapsed');
+                btnReopenSidebar.classList.add('hidden');
+            }
+        }
+
+        btnToggleSidebar.addEventListener('click', () => toggleSidebar(true));
+        btnReopenSidebar.addEventListener('click', () => toggleSidebar(false));
+
+        // Real-time button usability check
+        function checkUIState() {
+            if (lastRenderedDM !== gameState.darkMatter) {
+                lastRenderedDM = gameState.darkMatter;
+                renderSidebar();
+            }
+        }
+
+        setInterval(checkUIState, 150);
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeTab = btn.getAttribute('data-tab');
+                renderSidebar();
+            });
+        });
+
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        const modalClose = document.getElementById('modal-close');
+
+        function openModal(html) {
+            modalContent.innerHTML = html;
+            modalOverlay.classList.remove('hidden');
+            safeCreateIcons();
+        }
+
+        modalClose.addEventListener('click', () => modalOverlay.classList.add('hidden'));
+
+        document.getElementById('btn-stats').addEventListener('click', () => {
+            const mins = Math.floor((Date.now() - gameState.startTime) / 60000);
+            openModal(`
+                <h3 class="font-fredoka text-xl font-semibold text-purple-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="bar-chart-2" class="text-pink-400"></i> Defense Statistics
+                </h3>
+                <div class="space-y-3 text-sm text-purple-100">
+                    <div class="flex justify-between py-2 border-b border-purple-800/30">
+                        <span class="text-purple-300/70">Current Level</span>
+                        <strong class="font-mono text-purple-200">Level ${gameState.level}</strong>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-purple-800/30">
+                        <span class="text-purple-300/70">Total Spheres Popped</span>
+                        <strong class="font-mono text-purple-200">${gameState.totalSpheresPopped.toLocaleString()}</strong>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-purple-800/30">
+                        <span class="text-purple-300/70">Total Dark Matter Earned</span>
+                        <strong class="font-mono text-purple-200">${formatNumber(gameState.totalDMHarvested)}</strong>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-purple-800/30">
+                        <span class="text-purple-300/70">Total Screen Clicks</span>
+                        <strong class="font-mono text-purple-200">${gameState.totalClicks.toLocaleString()}</strong>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-purple-800/30">
+                        <span class="text-purple-300/70">Turrets Placed</span>
+                        <strong class="font-mono text-purple-200">${gameState.placedTurrets.length}</strong>
+                    </div>
+                    <div class="flex justify-between py-2 border-b border-purple-800/30">
+                        <span class="text-purple-300/70">Session Time</span>
+                        <strong class="font-mono text-purple-200">${mins} mins</strong>
+                    </div>
+                </div>
+            `);
+        });
+
+        function wipeSaveData() {
+            if (confirm("⚠️ ARE YOU SURE YOU WANT TO WIPE ALL SAVE DATA?\nThis action cannot be undone!")) {
+                if (confirm("Confirming wipe: Reset everything to scratch?")) {
+                    localStorage.removeItem('void_garden_save');
+                    location.reload();
+                }
+            }
+        }
+
+        document.getElementById('btn-wipe-save').addEventListener('click', wipeSaveData);
+        document.getElementById('btn-save-quick').addEventListener('click', () => {
+            saveGame();
+        });
+
+        document.getElementById('btn-audio').addEventListener('click', () => {
+            audioMuted = !audioMuted;
+            const icon = document.getElementById('icon-audio');
+            if (audioMuted) {
+                icon.setAttribute('data-lucide', 'volume-x');
+                showToast("Audio muted");
+            } else {
+                icon.setAttribute('data-lucide', 'volume-2');
+                playChimeSound();
+                showToast("Audio active");
+            }
+            safeCreateIcons();
+        });
+
+        function showToast(text) {
+            const toast = document.getElementById('toast-msg');
+            document.getElementById('toast-text').innerText = text;
+            toast.classList.remove('opacity-0', 'translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-4');
+            }, 2500);
+        }
+
+        function saveGame() {
+            try {
+                const save = {
+                    gameState: gameState,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('void_garden_save', JSON.stringify(save));
+                showToast("Game Saved ✨");
+            } catch (e) {
+                console.error("Save error", e);
+            }
+        }
+
+        function loadGame() {
+            try {
+                const saved = localStorage.getItem('void_garden_save');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    Object.assign(gameState, parsed.gameState);
+
+                    const now = Date.now();
+                    const offlineSecs = Math.floor((now - (parsed.timestamp || now)) / 1000);
+                    if (offlineSecs > 5 && gameState.passiveDMPerSec > 0) {
+                        const earned = Math.floor(offlineSecs * gameState.passiveDMPerSec * 0.5);
+                        addDarkMatter(earned);
+                        showToast(`Harvested +${formatNumber(earned)} DM offline!`);
+                    }
+                }
+            } catch (e) {
+                console.error("Load error", e);
+            }
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            loadGame();
+            updateHUD();
+            recalculateDPS();
+            renderSidebar();
+            renderLoop();
+
+            restartSpawnLoop();
+
+            setInterval(() => {
+                if (gameState.passiveDMPerSec > 0) {
+                    addDarkMatter(gameState.passiveDMPerSec);
+                }
+            }, 1000);
+
+            setInterval(saveGame, 20000);
+
+            setTimeout(() => spawnDarkSphere(), 100);
+            setTimeout(() => spawnDarkSphere(), 300);
+            setTimeout(() => spawnDarkSphere(), 500);
+
+            safeCreateIcons();
+        };
+
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
